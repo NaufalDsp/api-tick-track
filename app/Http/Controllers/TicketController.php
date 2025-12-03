@@ -10,7 +10,45 @@ use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
-    public function store(TicketStoreRequest $request) 
+    public function index(Request $request)
+    {
+        try {
+            $query = Ticket::query();
+
+            $query->orderBy('created_at', 'desc');
+
+            if ($request->search) {
+                $query->where('code', 'like', '%' . $request->search . '%')
+                    ->orWhere('title', 'like', '%' . $request->search . '%');
+            };
+
+            if ($request->status) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->priority) {
+                $query->where('priority', $request->priority);
+            }
+
+            if (auth()->user()->role == 'user') {
+                $query->where('user_id', auth()->user()->id);
+            }
+
+            $tickets = $query->get();
+
+            return response()->json([
+                'message' => 'Data Tiket Berhasil Ditampilkan',
+                'data' => TicketResource::collection($tickets)
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Terjadi Kesalahan',
+                'data' => null
+            ], 500);
+        }
+    }
+
+    public function store(TicketStoreRequest $request)
     {
         $data = $request->validated();
 
@@ -24,7 +62,7 @@ class TicketController extends Controller
             $ticket->description = $data['description'];
             $ticket->priority = $data['priority'];
             $ticket->save();
-            
+
             DB::commit();
 
             return response()->json([
@@ -32,8 +70,8 @@ class TicketController extends Controller
                 'data' => new TicketResource($ticket)
             ], 201);
         } catch (\Exception $e) {
-         DB::rollBack();
-         return response()->json([
+            DB::rollBack();
+            return response()->json([
                 'message' => 'Terjadi Kesalahan',
                 'data' => null
             ], 500);
